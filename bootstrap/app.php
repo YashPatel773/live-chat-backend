@@ -12,7 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        
+        // 1. Tell Laravel this is a stateful API (Enables Sanctum/JWT tracking)
+        $middleware->statefulApi();
+
+        // 2. Trust your Vercel frontend domain proxy setups
+        $middleware->trustProxies(at: '*');
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
