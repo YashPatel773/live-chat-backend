@@ -18,11 +18,16 @@ class ChatController extends Controller
         $currentUser = auth()->user();
 
         // Fetch all users from the database, excluding the current user, and load their profile images
-        $users = User::where('id', '!=', $currentUser->id)
-            ->select('id', 'name', 'email')
-            ->get();
 
-        return response()->json($users);
+        $friends = $currentUser->friends->map(function ($friend) {
+            return [
+                'id' => $friend->id,
+                'name' => $friend->name,
+                'email' => $friend->email,
+            ];
+        });
+
+        return response()->json($friends);
     }
 
     /**
@@ -57,15 +62,17 @@ class ChatController extends Controller
     {
         $currentUser = auth()->id();
 
-        // Retrieve messages between the current user and the specified user, ordered by time
+
         $messages = Message::with(['sender', 'receiver'])
             ->where(function ($query) use ($currentUser, $userId) {
                 $query->where('sender_id', $currentUser)
-                    ->where('receiver_id', $userId);
+                    ->where('receiver_id', $userId)
+                    ->where('deleted_by_sender', false);
             })
             ->orWhere(function ($query) use ($currentUser, $userId) {
                 $query->where('sender_id', $userId)
-                    ->where('receiver_id', $currentUser);
+                    ->where('receiver_id', $currentUser)
+                    ->where('deleted_by_receiver', false);
             })
             ->orderBy('created_at', 'asc')
             ->get();
@@ -76,25 +83,65 @@ class ChatController extends Controller
         ]);
     }
 
+
+    public function deleteMessage(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:me,everyone' // 'me' = delete for self, 'everyone' = unsend
+        ]);
+
+        $message = Message::findOrFail($id);
+        $authId = auth()->id();
+
+        // Security Check: Ensure the logged-in user is actually part of this message conversation
+        if ($message->sender_id !== $authId && $message->receiver_id !== $authId) {
+            return response()->json(['message' => 'Unauthorized action.'], 403);
+        }
+
+        if ($request->type === 'everyone') {
+            // --- DELETE FOR EVERYONE ---
+            // Only the sender should be allowed to unsend a message for everyone
+            if ($message->sender_id !== $authId) {
+                return response()->json(['message' => 'You can only delete your own messages for everyone.'], 403);
+            }
+
+            // Clean option: Hard delete the row completely from the database
+            $message->delete();
+
+            // NOTE: This is where you would emit a Socket.io event 'message_deleted_everyone' 
+            // so it disappears from the receiver's React UI in real-time.
+
+            return response()->json(['success' => true, 'message' => 'Message deleted for everyone.']);
+        } else {
+            // --- DELETE FOR ME ONLY ---
+            if ($message->sender_id === $authId) {
+                $message->update(['deleted_by_sender' => true]);
+            } else {
+                $message->update(['deleted_by_receiver' => true]);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Message hidden for you.']);
+        }
+    }
     /**
      * Mark all messages from a user as seen
      */
-   /**
- * Mark all unread messages from a specific sender as seen
- */
-public function markAsSeen($senderId)
-{
-    $receiverId = auth()->id();
+    /**
+     * Mark all unread messages from a specific sender as seen
+     */
+    public function markAsSeen($senderId)
+    {
+        $receiverId = auth()->id();
 
-    // Find all unread messages sent to me by this specific user
-    Message::where('sender_id', $senderId)
-        ->where('receiver_id', $receiverId)
-        ->where('is_seen', false)
-        ->update(['is_seen' => true]);
+        // Find all unread messages sent to me by this specific user
+        Message::where('sender_id', $senderId)
+            ->where('receiver_id', $receiverId)
+            ->where('is_seen', false)
+            ->update(['is_seen' => true]);
 
-    return response()->json([
-        'success' => true,
-        'message' => 'Conversation marked as read.'
-    ]);
-}
+        return response()->json([
+            'success' => true,
+            'message' => 'Conversation marked as read.'
+        ]);
+    }
 }

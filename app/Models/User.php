@@ -47,6 +47,35 @@ class User extends Authenticatable implements JWTSubject
         return [];
     }
 
+
+    /** 
+     * Friends 
+     */
+    public function friendsOfMine()
+    {
+        return $this->belongsToMany(User::class, 'friendships', 'sender_id', 'receiver_id')
+                    ->wherePivot('status', 'accepted');
+    }
+
+    /**
+     * Friends where the current user received the request and accepted it
+     */
+    public function friendOf()
+    {
+        return $this->belongsToMany(User::class, 'friendships', 'receiver_id', 'sender_id')
+                    ->wherePivot('status', 'accepted');
+    }
+
+    /**
+     * Helper attribute to merge both sides and get a complete list of friends for the sidebar
+     */
+    public function getFriendsAttribute()
+    {
+        return $this->friendsOfMine->merge($this->friendOf);
+    }
+
+
+
     /**
      * Get the attributes that should be cast.
      *

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\FriendshipController;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,5 +30,12 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/messages/{receiverId}', [ChatController::class, 'getMessages']);
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::post('/messages/seen/{senderId}', [ChatController::class, 'markAsSeen']);
+
+    Route::get('/suggested-friends', [FriendshipController::class, 'getRandomUsers']);
+    Route::get('/pending-requests', [FriendshipController::class, 'getPendingRequests']);
+    Route::post('/friend-request/send', [FriendshipController::class, 'sendRequest']);
+    Route::post('/friend-request/accept', [FriendshipController::class, 'acceptRequest']);
+    Route::post('/friend-request/decline', [FriendshipController::class, 'declineRequest']);
+    Route::delete('/messages/{id}', [ChatController::class, 'deleteMessage']);
     
 });
