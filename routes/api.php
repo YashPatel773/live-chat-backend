@@ -12,6 +12,7 @@ use App\Http\Controllers\FriendshipController;
 */
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/users/offline', [ChatController::class, 'setUserOffline']);
 
 /*
 |--------------------------------------------------------------------------
@@ -19,7 +20,7 @@ Route::post('/login', [AuthController::class, 'login']);
 |--------------------------------------------------------------------------
 | The 'auth:api' middleware intercepts these routes, reads the incoming 
 | request headers, checks for the token, and verifies it with our JWT driver.
-*/
+| */
 Route::middleware('auth:api')->group(function () {
     
     // Auth cleanup route

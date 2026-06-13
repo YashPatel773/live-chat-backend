@@ -23,6 +23,7 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
+        'last_seen',
     ];
 
     /**
@@ -54,7 +55,7 @@ class User extends Authenticatable implements JWTSubject
     public function friendsOfMine()
     {
         return $this->belongsToMany(User::class, 'friendships', 'sender_id', 'receiver_id')
-                    ->wherePivot('status', 'accepted');
+            ->wherePivot('status', 'accepted');
     }
 
     /**
@@ -63,7 +64,7 @@ class User extends Authenticatable implements JWTSubject
     public function friendOf()
     {
         return $this->belongsToMany(User::class, 'friendships', 'receiver_id', 'sender_id')
-                    ->wherePivot('status', 'accepted');
+            ->wherePivot('status', 'accepted');
     }
 
     /**
@@ -86,6 +87,7 @@ class User extends Authenticatable implements JWTSubject
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_seen' => 'datetime'
         ];
     }
 }

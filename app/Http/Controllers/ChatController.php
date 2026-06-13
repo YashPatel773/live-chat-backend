@@ -24,6 +24,7 @@ class ChatController extends Controller
                 'id' => $friend->id,
                 'name' => $friend->name,
                 'email' => $friend->email,
+                'last_seen' => $friend->last_seen,
             ];
         });
 
@@ -143,5 +144,28 @@ class ChatController extends Controller
             'success' => true,
             'message' => 'Conversation marked as read.'
         ]);
+    }
+
+
+    /*
+     * LastSeen Offline user 
+     */
+    public function setUserOffline(Request $request)
+    {
+        $request->validate([
+            "user_id" => 'required|exists:users,id'
+        ]);
+
+        $user = User::findOrFail($request->user_id);
+        $user->update([
+            'last_seen' => now() // sets current system date and time
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User last_seen timestamp updated successfully.',
+            'user_id' => $user->id,
+            'last_seen' => $user->last_seen->toIso8601String() // Formats cleanly for javascript consumption
+        ], 200);
     }
 }
