@@ -14,11 +14,8 @@ class ChatController extends Controller
      */
     public function getUsers()
     {
-        // Get the currently logged-in user
+         
         $currentUser = auth()->user();
-
-        // Fetch all users from the database, excluding the current user, and load their profile images
-
         $friends = $currentUser->friends->map(function ($friend) {
             return [
                 'id' => $friend->id,
@@ -36,18 +33,18 @@ class ChatController extends Controller
      */
     public function sendMessage(Request $request)
     {
-        // 1. Validate the incoming message data
+     
         $request->validate([
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string'
         ]);
 
-        // 2. Create the message in the database
+        
         $message = Message::create([
-            'sender_id' => auth()->id(),          // The ID of the logged-in user
+            'sender_id' => auth()->id(),          
             'receiver_id' => $request->receiver_id,
             'message' => $request->message,
-            'is_seen' => false                  // Messages are initially unread
+            'is_seen' => false                  
         ]);
 
         return response()->json([
@@ -62,8 +59,7 @@ class ChatController extends Controller
     public function getMessages($userId)
     {
         $currentUser = auth()->id();
-
-
+        
         $messages = Message::with(['sender', 'receiver'])
             ->where(function ($query) use ($currentUser, $userId) {
                 $query->where('sender_id', $currentUser)
@@ -88,7 +84,7 @@ class ChatController extends Controller
     public function deleteMessage(Request $request, $id)
     {
         $request->validate([
-            'type' => 'required|in:me,everyone' // 'me' = delete for self, 'everyone' = unsend
+            'type' => 'required|in:me,everyone '
         ]);
 
         $message = Message::findOrFail($id);
@@ -100,13 +96,13 @@ class ChatController extends Controller
         }
 
         if ($request->type === 'everyone') {
-            // --- DELETE FOR EVERYONE ---
+             
             // Only the sender should be allowed to unsend a message for everyone
             if ($message->sender_id !== $authId) {
                 return response()->json(['message' => 'You can only delete your own messages for everyone.'], 403);
             }
 
-            // Clean option: Hard delete the row completely from the database
+             
             $message->delete();
 
             // NOTE: This is where you would emit a Socket.io event 'message_deleted_everyone' 
@@ -114,7 +110,7 @@ class ChatController extends Controller
 
             return response()->json(['success' => true, 'message' => 'Message deleted for everyone.']);
         } else {
-            // --- DELETE FOR ME ONLY ---
+
             if ($message->sender_id === $authId) {
                 $message->update(['deleted_by_sender' => true]);
             } else {
@@ -124,9 +120,7 @@ class ChatController extends Controller
             return response()->json(['success' => true, 'message' => 'Message hidden for you.']);
         }
     }
-    /**
-     * Mark all messages from a user as seen
-     */
+
     /**
      * Mark all unread messages from a specific sender as seen
      */
@@ -158,7 +152,7 @@ class ChatController extends Controller
 
         $user = User::findOrFail($request->user_id);
         $user->update([
-            'last_seen' => now() // sets current system date and time
+            'last_seen' => now()
         ]);
 
         return response()->json([
