@@ -37,6 +37,8 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/friend-request/send', [FriendshipController::class, 'sendRequest']);
     Route::post('/friend-request/accept', [FriendshipController::class, 'acceptRequest']);
     Route::post('/friend-request/decline', [FriendshipController::class, 'declineRequest']);
+    Route::post('/friend-request/remove', [FriendshipController::class, 'removeFriend']);
     Route::delete('/messages/{id}', [ChatController::class, 'deleteMessage']);
+    Route::post('/messages/clear/{friendId}', [ChatController::class, 'clearChat']);
     
 });

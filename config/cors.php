@@ -17,8 +17,8 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    // 'allowed_methods' => ['*'],
-    'allowed_origins' => ['https://live-chat-frontend-nu.vercel.app'],
+    'allowed_methods' => ['*'],
+    // 'allowed_origins' => ['https://live-chat-frontend-nu.vercel.app'],
 
     'allowed_origins_patterns' => [],
 

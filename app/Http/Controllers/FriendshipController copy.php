@@ -122,33 +122,4 @@ class FriendshipController extends Controller
             'message' => 'Friend request declined.'
         ]);
     }
-
-    /*
-     * Remove Friendship
-     */
-    public function removeFriend(Request $request)
-    {
-        $request->validate([
-            'friend_id' => 'required|exists:users,id'
-        ]);
-
-        $authId = auth()->id();
-        $friendId = $request->friend_id;
-
-        DB::table('friendships')
-            ->where(function ($query) use ($authId, $friendId) {
-                $query->where('sender_id', $authId)
-                      ->where('receiver_id', $friendId);
-            })
-            ->orWhere(function ($query) use ($authId, $friendId) {
-                $query->where('sender_id', $friendId)
-                      ->where('receiver_id', $authId);
-            })
-            ->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Friend removed successfully.'
-        ]);
-    }
 }

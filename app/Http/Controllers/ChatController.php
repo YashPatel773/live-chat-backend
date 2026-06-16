@@ -14,7 +14,7 @@ class ChatController extends Controller
      */
     public function getUsers()
     {
-         
+
         $currentUser = auth()->user();
         $friends = $currentUser->friends->map(function ($friend) {
             return [
@@ -33,18 +33,18 @@ class ChatController extends Controller
      */
     public function sendMessage(Request $request)
     {
-     
+
         $request->validate([
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string'
         ]);
 
-        
+
         $message = Message::create([
-            'sender_id' => auth()->id(),          
+            'sender_id' => auth()->id(),
             'receiver_id' => $request->receiver_id,
             'message' => $request->message,
-            'is_seen' => false                  
+            'is_seen' => false
         ]);
 
         return response()->json([
@@ -60,6 +60,7 @@ class ChatController extends Controller
     {
         $currentUser = auth()->id();
         
+        $deletedAt = $friendship->chat_deleted_at ?? '1970-01-01 00:00:00';
         $messages = Message::with(['sender', 'receiver'])
             ->where(function ($query) use ($currentUser, $userId) {
                 $query->where('sender_id', $currentUser)
@@ -96,13 +97,13 @@ class ChatController extends Controller
         }
 
         if ($request->type === 'everyone') {
-             
+
             // Only the sender should be allowed to unsend a message for everyone
             if ($message->sender_id !== $authId) {
                 return response()->json(['message' => 'You can only delete your own messages for everyone.'], 403);
             }
 
-             
+
             $message->delete();
 
             // NOTE: This is where you would emit a Socket.io event 'message_deleted_everyone' 
@@ -161,5 +162,29 @@ class ChatController extends Controller
             'user_id' => $user->id,
             'last_seen' => $user->last_seen->toIso8601String() // Formats cleanly for javascript consumption
         ], 200);
+    }
+
+    /*
+     * Delte whole Chat
+     * 
+     */
+    public function clearChat($friendId)
+    {
+        $authId = auth()->id();
+
+        // 1. If I am the sender, mark it as deleted_by_sender
+        Message::where('sender_id', $authId)
+            ->where('receiver_id', $friendId)
+            ->update(['deleted_by_sender' => true]);
+
+        // 2. If I am the receiver, mark it as deleted_by_receiver
+        Message::where('sender_id', $friendId)
+            ->where('receiver_id', $authId)
+            ->update(['deleted_by_receiver' => true]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Chat history cleared locally.'
+        ]);
     }
 }

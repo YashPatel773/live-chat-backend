@@ -52,6 +52,15 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
+        $existUser = User::where('email', $request->email)->first();
+
+        if(!$existUser){
+            return response()->json([
+                'success' => false,
+                'error' => 'User not found'
+            ], 400);
+        }
+
         $credentials = $request->only(['email', 'password']);
 
         
