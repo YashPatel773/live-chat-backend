@@ -75,6 +75,16 @@ class User extends Authenticatable implements JWTSubject
         return $this->friendsOfMine->merge($this->friendOf);
     }
 
+    /**
+     * The groups that this user is a member of.
+     */
+    public function groups()
+    {
+        return $this->belongsToMany(Group::class, 'group_user')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
 
 
     /**

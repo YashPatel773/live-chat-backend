@@ -13,8 +13,12 @@ class Message extends Model
     protected $fillable = [
         'sender_id',
         'receiver_id',
+        'group_id',
         'message',
-        'is_seen'
+        'is_seen',
+        'type',       
+        'file_path',  
+        'file_name'
     ];
 
     /**
@@ -31,5 +35,13 @@ class Message extends Model
     public function receiver()
     {
         return $this->belongsTo(User::class, 'receiver_id');
+    }
+
+    /**
+     * Relationship: A message can belong to a group
+     */
+    public function group()
+    {
+        return $this->belongsTo(Group::class, 'group_id');
     }
 }

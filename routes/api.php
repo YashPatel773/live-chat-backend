@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\FriendshipController;
+use App\Http\Controllers\GroupController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,5 +41,13 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/friend-request/remove', [FriendshipController::class, 'removeFriend']);
     Route::delete('/messages/{id}', [ChatController::class, 'deleteMessage']);
     Route::post('/messages/clear/{friendId}', [ChatController::class, 'clearChat']);
+    
+    // Group routes
+    Route::get('/groups', [GroupController::class, 'index']);
+    Route::post('/groups', [GroupController::class, 'store']);
+    Route::get('/groups/{groupId}/messages', [GroupController::class, 'getMessages']);
+    Route::post('/groups/{groupId}/members', [GroupController::class, 'addMember']);
+    Route::post('/groups/{groupId}/members/remove', [GroupController::class, 'removeMember']);
+
     
 });

@@ -1,0 +1,191 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Group;
+use App\Models\Message;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class GroupController extends Controller
+{
+    /**
+     * Get all groups the authenticated user is a member of.
+     */
+    public function index()
+    {
+        $groups = auth()->user()->groups()
+            ->with(['members', 'creator'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($groups);
+    }
+
+    /**
+     * Create a new group and associate selected members.
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'members' => 'required|array',
+            'members.*' => 'exists:users,id',
+        ]);
+ 
+        $group = Group::create([
+            'name' => $request->name,
+            'created_by' => auth()->id(),
+        ]);
+ 
+        $memberIds = array_unique(array_merge($request->members, [auth()->id()]));
+ 
+        $group->members()->attach($memberIds)  ;
+ 
+        $group->load(['members', 'creator']);
+
+        return response()->json([
+            'success' => true,
+            'group' => $group,
+        ], 201);
+    }
+
+    /**
+     * Get all messages for a specific group.
+     */
+    public function getMessages($groupId)
+    {
+        $group = Group::findOrFail($groupId);
+
+        // Security check: Ensure user belongs to the group
+        if (!$group->members->contains(auth()->id())) {
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. You are not a member of this group.',
+            ], 403);
+        }
+
+        $messages = Message::where('group_id', $groupId)
+            ->with(['sender'])
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'messages' => $messages,
+        ]);
+    }
+
+    /**
+     * Add a member to a group.
+     */
+    public function addMember(Request $request, $groupId)
+    {
+        $request->validate([
+            'member_id' => 'required|exists:users,id',
+        ]);
+
+        $group = Group::findOrFail($groupId);
+
+        // Security check: Only the group creator (admin) can add members
+        if ($group->created_by !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Only the group creator can add members.',
+            ], 403);
+        }
+
+        $memberId = $request->member_id;
+
+        // Constraint: Only friends of the creator (admin) can be added
+        $isFriend = DB::table('friendships')
+            ->where('status', 'accepted')
+            ->where(function ($query) use ($memberId) {
+                $query->where(function ($q) use ($memberId) {
+                    $q->where('sender_id', auth()->id())
+                      ->where('receiver_id', $memberId);
+                })->orWhere(function ($q) use ($memberId) {
+                    $q->where('sender_id', $memberId)
+                      ->where('receiver_id', auth()->id());
+                });
+            })
+            ->exists();
+
+        if (!$isFriend) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can only add users who are your friends.',
+            ], 422);
+        }
+
+        // Check if user is already a member
+        if ($group->members()->where('user_id', $memberId)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This user is already a member of the group.',
+            ], 422);
+        }
+
+        // Add member
+        $group->members()->attach($memberId);
+
+        $group->load(['members', 'creator']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Member added successfully.',
+            'group' => $group,
+        ]);
+    }
+
+    /**
+     * Remove a member from a group.
+     */
+    public function removeMember(Request $request, $groupId)
+    {
+        $request->validate([
+            'member_id' => 'required|exists:users,id',
+        ]);
+
+        $group = Group::findOrFail($groupId);
+
+        // Security check: Only the group creator (admin) can remove members
+        if ($group->created_by !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Only the group creator can remove members.',
+            ], 403);
+        }
+
+        $memberId = $request->member_id;
+
+        // Restriction: Cannot remove the group creator
+        if ((int)$memberId === (int)$group->created_by) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The group creator cannot be removed from the group.',
+            ], 422);
+        }
+
+        // Check if user is actually a member
+        if (!$group->members()->where('user_id', $memberId)->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This user is not a member of the group.',
+            ], 422);
+        }
+
+        // Remove member
+        $group->members()->detach($memberId);
+
+        $group->load(['members', 'creator']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Member removed successfully.',
+            'group' => $group,
+        ]);
+    }
+}
+

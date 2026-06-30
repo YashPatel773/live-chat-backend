@@ -33,19 +33,45 @@ class ChatController extends Controller
      */
     public function sendMessage(Request $request)
     {
-
         $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-            'message' => 'required|string'
+            'receiver_id' => 'required_without:group_id|nullable|exists:users,id',
+            'group_id' => 'required_without:receiver_id|nullable|exists:groups,id',
+            'message' => 'nullable|string',
+            'file' => 'nullable|file|max:51200'
         ]);
 
+        $filePath = null;
+        $fileName = null;
+        $type = 'text';
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $fileName = $file->getClientOriginalName();
+            $mime = $file->getMimeType();
+
+            if (str_starts_with($mime, 'image/')) {
+                $type = 'image';
+            } elseif (str_starts_with($mime, 'video/')) {
+                $type = 'video';
+            } else {
+                $type = 'document';
+            }
+
+            $filePath = $file->store('uploads', 'public');
+        }
 
         $message = Message::create([
             'sender_id' => auth()->id(),
             'receiver_id' => $request->receiver_id,
+            'group_id' => $request->group_id,
             'message' => $request->message,
+            'type' => $type,
+            'file_path' => $filePath,
+            'file_name' => $fileName,
             'is_seen' => false
         ]);
+
+        $message->load('sender');
 
         return response()->json([
             'success' => true,
@@ -59,8 +85,8 @@ class ChatController extends Controller
     public function getMessages($userId)
     {
         $currentUser = auth()->id();
-        
-        $deletedAt = $friendship->chat_deleted_at ?? '1970-01-01 00:00:00';
+
+        // $deletedAt = $friendship->chat_deleted_at ?? '1970-01-01 00:00:00';
         $messages = Message::with(['sender', 'receiver'])
             ->where(function ($query) use ($currentUser, $userId) {
                 $query->where('sender_id', $currentUser)
@@ -72,6 +98,7 @@ class ChatController extends Controller
                     ->where('receiver_id', $currentUser)
                     ->where('deleted_by_receiver', false);
             })
+            
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -85,7 +112,7 @@ class ChatController extends Controller
     public function deleteMessage(Request $request, $id)
     {
         $request->validate([
-            'type' => 'required|in:me,everyone '
+            'type' => 'required|in:me,everyone'
         ]);
 
         $message = Message::findOrFail($id);
