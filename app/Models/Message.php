@@ -14,11 +14,13 @@ class Message extends Model
         'sender_id',
         'receiver_id',
         'group_id',
+        'reply_to_id',
         'message',
         'is_seen',
-        'type',       
-        'file_path',  
-        'file_name'
+        'type',
+        'file_path',
+        'file_name',
+        'is_edited'
     ];
 
     /**
@@ -43,5 +45,21 @@ class Message extends Model
     public function group()
     {
         return $this->belongsTo(Group::class, 'group_id');
+    }
+
+    /*
+     * Relationship: A message can be a reply to another message 
+     */
+    public function replyTo()
+    {
+        return $this->belongsTo(Message::class, 'reply_to_id');
+    }
+
+    /**
+     * Relationship: A message can have multiple reactions
+     */
+    public function reactions()
+    {
+        return $this->hasMany(MessageReaction::class);
     }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\GroupController;
+use App\Http\Controllers\MessageReactionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +33,7 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/messages/{receiverId}', [ChatController::class, 'getMessages']);
     Route::post('/messages', [ChatController::class, 'sendMessage']);
     Route::post('/messages/seen/{senderId}', [ChatController::class, 'markAsSeen']);
+    Route::post('/messages/{message}/react', [MessageReactionController::class, 'toggleReaction']);
 
     Route::get('/suggested-friends', [FriendshipController::class, 'getRandomUsers']);
     Route::get('/pending-requests', [FriendshipController::class, 'getPendingRequests']);
@@ -40,6 +42,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/friend-request/decline', [FriendshipController::class, 'declineRequest']);
     Route::post('/friend-request/remove', [FriendshipController::class, 'removeFriend']);
     Route::delete('/messages/{id}', [ChatController::class, 'deleteMessage']);
+    Route::put('/messages/{id}', [ChatController::class, 'updateMessage']);
     Route::post('/messages/clear/{friendId}', [ChatController::class, 'clearChat']);
     
     // Group routes
@@ -48,6 +51,6 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/groups/{groupId}/messages', [GroupController::class, 'getMessages']);
     Route::post('/groups/{groupId}/members', [GroupController::class, 'addMember']);
     Route::post('/groups/{groupId}/members/remove', [GroupController::class, 'removeMember']);
-
+    Route::post('/groups/{groupId}/leave', [GroupController::class, 'leaveGroup']);
     
 });

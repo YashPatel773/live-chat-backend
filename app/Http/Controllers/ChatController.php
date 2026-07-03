@@ -37,7 +37,8 @@ class ChatController extends Controller
             'receiver_id' => 'required_without:group_id|nullable|exists:users,id',
             'group_id' => 'required_without:receiver_id|nullable|exists:groups,id',
             'message' => 'nullable|string',
-            'file' => 'nullable|file|max:51200'
+            'file' => 'nullable|file|max:51200',
+            'reply_to_id' => 'nullable|exists:messages,id'
         ]);
 
         $filePath = null;
@@ -68,10 +69,11 @@ class ChatController extends Controller
             'type' => $type,
             'file_path' => $filePath,
             'file_name' => $fileName,
-            'is_seen' => false
+            'is_seen' => false,
+            'reply_to_id' => $request->reply_to_id,
         ]);
 
-        $message->load('sender');
+        $message->load('sender', 'replyTo.sender', 'reactions.user:id,name');
 
         return response()->json([
             'success' => true,
@@ -87,7 +89,7 @@ class ChatController extends Controller
         $currentUser = auth()->id();
 
         // $deletedAt = $friendship->chat_deleted_at ?? '1970-01-01 00:00:00';
-        $messages = Message::with(['sender', 'receiver'])
+        $messages = Message::with(['sender', 'receiver','replyTo.sender', 'reactions.user:id,name'])
             ->where(function ($query) use ($currentUser, $userId) {
                 $query->where('sender_id', $currentUser)
                     ->where('receiver_id', $userId)
@@ -98,7 +100,7 @@ class ChatController extends Controller
                     ->where('receiver_id', $currentUser)
                     ->where('deleted_by_receiver', false);
             })
-            
+
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -212,6 +214,36 @@ class ChatController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Chat history cleared locally.'
+        ]);
+    }
+
+    /**
+     * Edit / Update an existing message sent by the authenticated user
+     */
+    public function updateMessage(Request $request, $id)
+    {
+        $request->validate([
+            'message' => 'required|string'
+        ]);
+
+        $message = Message::findOrFail($id);
+
+        // Security check: Only the owner of the message can edit it
+        if ($message->sender_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $message->update([
+            'message' => $request->message,
+            'is_edited' => true
+        ]);
+
+        // Eager load relations so it has reactions, sender, receiver, replyTo, etc.
+        $message->load(['sender', 'receiver', 'replyTo.sender', 'reactions.user:id,name']);
+
+        return response()->json([
+            'success' => true,
+            'message' => $message
         ]);
     }
 }

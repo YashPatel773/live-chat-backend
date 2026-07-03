@@ -67,7 +67,7 @@ class GroupController extends Controller
         }
 
         $messages = Message::where('group_id', $groupId)
-            ->with(['sender', 'replyTo.sender', 'reactions.user:id,name'])
+            ->with(['sender'])
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -197,26 +197,16 @@ class GroupController extends Controller
  
         $userId = auth()->user()->id;
  
-        if (!$group->members()->where('user_id', $userId)->exists()) {
+        if (!$group->users()->where('user_id', $userId)->exists()) {
             return response()->json([
                 'message' => 'You are not a member of this group.'
             ], 400);
         }
-
-        if ((int)$userId === (int)$group->created_by) {
-            return response()->json([
-                'message' => 'The group creator cannot leave the group.'
-            ], 400);
-        }
  
-        $group->members()->detach($userId);
-
-        $group->load(['members', 'creator']);
+        $group->users()->detach($userId);
 
         return response()->json([
-            'success' => true,
-            'message' => 'You have successfully left the group.',
-            'group' => $group,
+            'message' => 'You have successfully left the group.'
         ], 200);
     }
 }
