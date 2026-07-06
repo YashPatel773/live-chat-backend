@@ -87,26 +87,60 @@ class ChatController extends Controller
     public function getMessages($userId)
     {
         $currentUser = auth()->id();
+        $cursor = request('cursor');
 
-        // $deletedAt = $friendship->chat_deleted_at ?? '1970-01-01 00:00:00';
-        $messages = Message::with(['sender', 'receiver','replyTo.sender', 'reactions.user:id,name'])
+        $query = Message::with(['sender', 'receiver', 'replyTo.sender', 'reactions.user:id,name'])
             ->where(function ($query) use ($currentUser, $userId) {
-                $query->where('sender_id', $currentUser)
-                    ->where('receiver_id', $userId)
-                    ->where('deleted_by_sender', false);
-            })
-            ->orWhere(function ($query) use ($currentUser, $userId) {
-                $query->where('sender_id', $userId)
-                    ->where('receiver_id', $currentUser)
-                    ->where('deleted_by_receiver', false);
-            })
+                $query->where(function ($q) use ($currentUser, $userId) {
+                    $q->where('sender_id', $currentUser)
+                        ->where('receiver_id', $userId)
+                        ->where('deleted_by_sender', false);
+                })
+                ->orWhere(function ($q) use ($currentUser, $userId) {
+                    $q->where('sender_id', $userId)
+                        ->where('receiver_id', $currentUser)
+                        ->where('deleted_by_receiver', false);
+                });
+            });
 
-            ->orderBy('created_at', 'asc')
+        if ($cursor) {
+            $query->where('id', '<', $cursor);
+        }
+
+        // Fetch 20 oldest (based on cursor) messages sorted by id desc
+        $messages = $query->orderBy('id', 'desc')
+            ->limit(20)
             ->get();
+
+        // Reverse to show in chronological order (ascending)
+        $messages = $messages->reverse()->values();
+
+        $oldestMessage = $messages->first();
+        $nextCursor = $oldestMessage ? $oldestMessage->id : null;
+        $hasMore = false;
+        
+        if ($nextCursor) {
+            $hasMore = Message::where(function ($query) use ($currentUser, $userId) {
+                $query->where(function ($q) use ($currentUser, $userId) {
+                    $q->where('sender_id', $currentUser)
+                        ->where('receiver_id', $userId)
+                        ->where('deleted_by_sender', false);
+                })
+                ->orWhere(function ($q) use ($currentUser, $userId) {
+                    $q->where('sender_id', $userId)
+                        ->where('receiver_id', $currentUser)
+                        ->where('deleted_by_receiver', false);
+                });
+            })
+            ->where('id', '<', $nextCursor)
+            ->exists();
+        }
 
         return response()->json([
             'success' => true,
-            'messages' => $messages
+            'messages' => $messages,
+            'next_cursor' => $nextCursor,
+            'has_more' => $hasMore
         ]);
     }
 

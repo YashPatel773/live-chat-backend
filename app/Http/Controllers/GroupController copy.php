@@ -57,7 +57,7 @@ class GroupController extends Controller
     {
         $group = Group::findOrFail($groupId);
 
-        // Security check: Ensure user belongs to the group
+        // Security check:  Get MEssage
         if (!$group->members->contains(auth()->id())) {
 
             return response()->json([
@@ -67,7 +67,7 @@ class GroupController extends Controller
         }
 
         $messages = Message::where('group_id', $groupId)
-            ->with(['sender'])
+            ->with(['sender', 'replyTo.sender', 'reactions.user:id,name'])
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -197,16 +197,26 @@ class GroupController extends Controller
  
         $userId = auth()->user()->id;
  
-        if (!$group->users()->where('user_id', $userId)->exists()) {
+        if (!$group->members()->where('user_id', $userId)->exists()) {
             return response()->json([
                 'message' => 'You are not a member of this group.'
             ], 400);
         }
+
+        if ((int)$userId === (int)$group->created_by) {
+            return response()->json([
+                'message' => 'The group creator cannot leave the group.'
+            ], 400);
+        }
  
-        $group->users()->detach($userId);
+        $group->members()->detach($userId);
+
+        $group->load(['members', 'creator']);
 
         return response()->json([
-            'message' => 'You have successfully left the group.'
+            'success' => true,
+            'message' => 'You have successfully left the group.',
+            'group' => $group,
         ], 200);
     }
 }

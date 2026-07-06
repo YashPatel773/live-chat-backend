@@ -26,7 +26,7 @@ Route::post('/users/offline', [ChatController::class, 'setUserOffline']);
 Route::middleware('auth:api')->group(function () {
     
     // Auth cleanup route
-    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/logout', [AuthController::class, 'logout']);  
     
     // Chat layout data routes
     Route::get('/users', [ChatController::class, 'getUsers']);
