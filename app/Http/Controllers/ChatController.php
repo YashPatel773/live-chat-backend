@@ -153,8 +153,7 @@ class ChatController extends Controller
 
         $message = Message::findOrFail($id);
         $authId = auth()->id();
-
-        // Security Check: Ensure the logged-in user is actually part of this message conversation
+ 
         if ($message->sender_id !== $authId && $message->receiver_id !== $authId) {
             return response()->json(['message' => 'Unauthorized action.'], 403);
         }
