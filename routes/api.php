@@ -12,6 +12,7 @@ use App\Http\Controllers\MessageReactionController;
 | Public Routes (Anyone can access these without a token)
 |--------------------------------------------------------------------------
 */
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/users/offline', [ChatController::class, 'setUserOffline']);
@@ -23,11 +24,21 @@ Route::post('/users/offline', [ChatController::class, 'setUserOffline']);
 | The 'auth:api' middleware intercepts these routes, reads the incoming 
 | request headers, checks for the token, and verifies it with our JWT driver.
 | */
+
+
+Route::get('/redis-test', function () {
+    try {
+        \Illuminate\Support\Facades\Redis::connection()->ping();
+        return response()->json(['redis' => 'connected']);
+    } catch (\Throwable $e) {
+        return response()->json(['redis_error' => $e->getMessage()], 500);
+    }
+});
 Route::middleware('auth:api')->group(function () {
-    
+
     // Auth cleanup route
-    Route::post('/logout', [AuthController::class, 'logout']);  
-    
+    Route::post('/logout', [AuthController::class, 'logout']);
+
     // Chat layout data routes
     Route::get('/users', [ChatController::class, 'getUsers']);
     Route::get('/messages/{receiverId}', [ChatController::class, 'getMessages']);
@@ -44,7 +55,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/messages/{id}', [ChatController::class, 'deleteMessage']);
     Route::put('/messages/{id}', [ChatController::class, 'updateMessage']);
     Route::post('/messages/clear/{friendId}', [ChatController::class, 'clearChat']);
-    
+
     // Group routes
     Route::get('/groups', [GroupController::class, 'index']);
     Route::post('/groups', [GroupController::class, 'store']);
@@ -52,5 +63,4 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/groups/{groupId}/members', [GroupController::class, 'addMember']);
     Route::post('/groups/{groupId}/members/remove', [GroupController::class, 'removeMember']);
     Route::post('/groups/{groupId}/leave', [GroupController::class, 'leaveGroup']);
-    
 });
