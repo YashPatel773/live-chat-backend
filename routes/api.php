@@ -34,6 +34,15 @@ Route::get('/redis-test', function () {
         return response()->json(['redis_error' => $e->getMessage()], 500);
     }
 });
+
+Route::get('/db-test', function () {
+    try {
+        $result = \Illuminate\Support\Facades\DB::select('select 1 as ok');
+        return response()->json(['db' => 'connected', 'result' => $result]);
+    } catch (\Throwable $e) {
+        return response()->json(['db_error' => $e->getMessage()], 500);
+    }
+});
 Route::middleware('auth:api')->group(function () {
 
     // Auth cleanup route
