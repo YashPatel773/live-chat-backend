@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class GroupController extends Controller
 {
@@ -14,10 +15,13 @@ class GroupController extends Controller
      */
     public function index()
     {
-        $groups = auth()->user()->groups()
-            ->with(['members', 'creator'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $userId = auth()->id();
+        $groups = Cache::remember("user_groups_" . $userId, now()->addDay(), function () {
+            return auth()->user()->groups()
+                ->with(['members', 'creator'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+        });
 
         return response()->json($groups);
     }
@@ -41,6 +45,11 @@ class GroupController extends Controller
         $memberIds = array_unique(array_merge($request->members, [auth()->id()]));
 
         $group->members()->attach($memberIds);
+
+        // Clear group cache for all added members
+        foreach ($memberIds as $id) {
+            Cache::forget("user_groups_" . $id);
+        }
 
         $group->load(['members', 'creator']);
 
@@ -68,7 +77,7 @@ class GroupController extends Controller
 
         $cursor = request('cursor');
         $query = Message::where('group_id', $groupId)
-            ->with(['sender', 'replyTo.sender', 'reactions.user:id,name']);
+            ->with(['sender',  'replyTo.sender', 'reactions.user:id,name']);
 
         if ($cursor) {
             $query->where('id', '<', $cursor);
@@ -151,6 +160,12 @@ class GroupController extends Controller
         // Add member
         $group->members()->attach($memberId);
 
+        // Clear cached group list for all group members (including the new one)
+        foreach ($group->members()->pluck('user_id') as $id) {
+            Cache::forget("user_groups_" . $id);
+        }
+        Cache::forget("user_groups_" . $memberId);
+
         $group->load(['members', 'creator']);
 
         return response()->json([
@@ -200,6 +215,12 @@ class GroupController extends Controller
         // Remove member
         $group->members()->detach($memberId);
 
+        // Clear cached group list for the removed member and all remaining members
+        Cache::forget("user_groups_" . $memberId);
+        foreach ($group->members()->pluck('user_id') as $id) {
+            Cache::forget("user_groups_" . $id);
+        }
+
         $group->load(['members', 'creator']);
 
         return response()->json([
@@ -231,6 +252,12 @@ class GroupController extends Controller
         }
  
         $group->members()->detach($userId);
+
+        // Clear cached group list for the user who left and remaining members
+        Cache::forget("user_groups_" . $userId);
+        foreach ($group->members()->pluck('user_id') as $id) {
+            Cache::forget("user_groups_" . $id);
+        }
 
         $group->load(['members', 'creator']);
 

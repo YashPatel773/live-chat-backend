@@ -66,14 +66,35 @@ class GroupController extends Controller
             ], 403);
         }
 
-        $messages = Message::where('group_id', $groupId)
-            ->with(['sender', 'replyTo.sender', 'reactions.user:id,name'])
-            ->orderBy('created_at', 'asc')
+        $cursor = request('cursor');
+        $query = Message::where('group_id', $groupId)
+            ->with(['sender', 'replyTo.sender', 'reactions.user:id,name']);
+
+        if ($cursor) {
+            $query->where('id', '<', $cursor);
+        }
+
+        $messages = $query->orderBy('id', 'desc')
+            ->limit(20)
             ->get();
+
+        $messages = $messages->reverse()->values();
+
+        $oldestMessage = $messages->first();
+        $nextCursor = $oldestMessage ? $oldestMessage->id : null;
+        $hasMore = false;
+        
+        if ($nextCursor) {
+            $hasMore = Message::where('group_id', $groupId)
+                ->where('id', '<', $nextCursor)
+                ->exists();
+        }
 
         return response()->json([
             'success' => true,
             'messages' => $messages,
+            'next_cursor' => $nextCursor,
+            'has_more' => $hasMore
         ]);
     }
 

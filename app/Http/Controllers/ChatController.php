@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ChatController extends Controller
 {
@@ -14,16 +15,28 @@ class ChatController extends Controller
      */
     public function getUsers()
     {
-
         $currentUser = auth()->user();
-        $friends = $currentUser->friends->map(function ($friend) {
-            return [
-                'id' => $friend->id,
-                'name' => $friend->name,
-                'email' => $friend->email,
-                'last_seen' => $friend->last_seen,
-            ];
+        
+        // Cache the friends list (static attributes only) for 1 day
+        $friendsData = Cache::remember("user_friends_" . $currentUser->id, now()->addDay(), function () use ($currentUser) {
+            return $currentUser->friends->map(function ($friend) {
+                return [
+                    'id' => $friend->id,
+                    'name' => $friend->name,
+                    'email' => $friend->email,
+                ];
+            })->toArray();
         });
+
+        // Hydrate status (last_seen) dynamically from Redis cache
+        $friends = array_map(function ($friend) {
+            $lastSeen = Cache::remember("user_last_seen_" . $friend['id'], now()->addMinutes(10), function () use ($friend) {
+                $user = User::find($friend['id']);
+                return $user ? ($user->last_seen ? $user->last_seen->toIso8601String() : null) : null;
+            });
+            $friend['last_seen'] = $lastSeen;
+            return $friend;
+        }, $friendsData);
 
         return response()->json($friends);
     }
@@ -218,11 +231,15 @@ class ChatController extends Controller
             'last_seen' => now()
         ]);
 
+        // Push new last_seen timestamp directly to Redis cache
+        $isoTimestamp = $user->last_seen->toIso8601String();
+        Cache::put("user_last_seen_" . $user->id, $isoTimestamp, now()->addMinutes(10));
+
         return response()->json([
             'success' => true,
             'message' => 'User last_seen timestamp updated successfully.',
             'user_id' => $user->id,
-            'last_seen' => $user->last_seen->toIso8601String() // Formats cleanly for javascript consumption
+            'last_seen' => $isoTimestamp // Formats cleanly for javascript consumption
         ], 200);
     }
 

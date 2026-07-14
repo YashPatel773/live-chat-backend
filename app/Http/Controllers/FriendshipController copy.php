@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 
 
 class FriendshipController extends Controller
@@ -19,26 +18,23 @@ class FriendshipController extends Controller
     {
         $authId = auth()->id();
  
-        $users = Cache::remember("user_suggested_friends_" . $authId, now()->addMinutes(10), function () use ($authId) {
-            $interactedUserIds = DB::table('friendships')
-                ->whereIn('status', ['pending', 'accepted'])  
-                ->where(function ($query) use ($authId) {
-                    $query->where('sender_id', $authId)
-                        ->orWhere('receiver_id', $authId);
-                })
-                ->selectRaw('CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as user_id', [$authId])
-                ->pluck('user_id')
-                ->toArray();
+        $interactedUserIds = DB::table('friendships')
+            ->whereIn('status', ['pending', 'accepted'])  
+            ->where(function ($query) use ($authId) {
+                $query->where('sender_id', $authId)
+                    ->orWhere('receiver_id', $authId);
+            })
+            ->selectRaw('CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as user_id', [$authId])
+            ->pluck('user_id')
+            ->toArray();
 
-            // Add yourself to the exclusion list
-            $interactedUserIds[] = $authId;
+        // Add yourself to the exclusion list
+        $interactedUserIds[] = $authId;
 
-            // Fetch only clean, new users
-            return User::whereNotIn('id', $interactedUserIds)
-                ->select('id', 'name', 'email')
-                ->get()
-                ->toArray();
-        });
+        // Fetch only clean, new users
+        $users = User::whereNotIn('id', $interactedUserIds)
+            ->select('id', 'name', 'email')
+            ->get();
 
         return response()->json($users);
     }
@@ -52,15 +48,11 @@ class FriendshipController extends Controller
             'receiver_id' => 'required|exists:users,id|not_in:' . auth()->id()
         ]);
 
+        
         $friendship = DB::table('friendships')->updateOrInsert(
             ['sender_id' => auth()->id(), 'receiver_id' => $request->receiver_id],
             ['status' => 'pending', 'created_at' => now(), 'updated_at' => now()]
         );
-
-        // Clear suggested friends cache for both sides and pending requests for receiver
-        Cache::forget("user_suggested_friends_" . auth()->id());
-        Cache::forget("user_suggested_friends_" . $request->receiver_id);
-        Cache::forget("user_pending_requests_" . $request->receiver_id);
 
         // NOTE: Right here is where you emit your Socket.io event: 
         // e.g., trigger real-time "friend-request-received" on the receiver's end.
@@ -77,16 +69,11 @@ class FriendshipController extends Controller
 
     public function getPendingRequests()
     {
-        $authId = auth()->id();
-
-        $requests = Cache::remember("user_pending_requests_" . $authId, now()->addDay(), function () use ($authId) {
-            return User::join('friendships', 'users.id', '=', 'friendships.sender_id')
-                ->where('friendships.receiver_id', $authId)
-                ->where('friendships.status', 'pending')
-                ->select('users.id', 'users.name', 'users.email', 'friendships.id as friendship_id')
-                ->get()
-                ->toArray();
-        });
+        $requests = User::join('friendships', 'users.id', '=', 'friendships.sender_id')
+            ->where('friendships.receiver_id', auth()->id())
+            ->where('friendships.status', 'pending')
+            ->select('users.id', 'users.name', 'users.email', 'friendships.id as friendship_id')
+            ->get();
 
         return response()->json($requests);
     }
@@ -105,13 +92,6 @@ class FriendshipController extends Controller
             ->where('sender_id', $request->sender_id)
             ->where('receiver_id', auth()->id())
             ->update(['status' => 'accepted', 'updated_at' => now()]);
-
-        // Invalidate caching for both users
-        Cache::forget("user_pending_requests_" . auth()->id());
-        Cache::forget("user_suggested_friends_" . auth()->id());
-        Cache::forget("user_suggested_friends_" . $request->sender_id);
-        Cache::forget("user_friends_" . auth()->id());
-        Cache::forget("user_friends_" . $request->sender_id);
 
         // NOTE: Right here is where you emit your Socket.io event:
         // e.g., trigger "friend-request-accepted" to push HTML directly to both sidebars.
@@ -136,11 +116,6 @@ class FriendshipController extends Controller
             ->where('sender_id', $request->sender_id)
             ->where('receiver_id', auth()->id())
             ->delete();
-
-        // Invalidate caching for both users
-        Cache::forget("user_pending_requests_" . auth()->id());
-        Cache::forget("user_suggested_friends_" . auth()->id());
-        Cache::forget("user_suggested_friends_" . $request->sender_id);
 
         return response()->json([
             'success' => true,
@@ -170,12 +145,6 @@ class FriendshipController extends Controller
                       ->where('receiver_id', $authId);
             })
             ->delete();
-
-        // Invalidate caching for both users
-        Cache::forget("user_friends_" . $authId);
-        Cache::forget("user_friends_" . $friendId);
-        Cache::forget("user_suggested_friends_" . $authId);
-        Cache::forget("user_suggested_friends_" . $friendId);
 
         return response()->json([
             'success' => true,
