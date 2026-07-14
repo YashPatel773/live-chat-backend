@@ -57,7 +57,6 @@ class GroupController extends Controller
     {
         $group = Group::findOrFail($groupId);
 
-        // Security check:  Get MEssage
         if (!$group->members->contains(auth()->id())) {
 
             return response()->json([
