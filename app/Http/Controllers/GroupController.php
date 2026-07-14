@@ -46,7 +46,6 @@ class GroupController extends Controller
 
         $group->members()->attach($memberIds);
 
-        // Clear group cache for all added members
         foreach ($memberIds as $id) {
             Cache::forget("user_groups_" . $id);
         }
