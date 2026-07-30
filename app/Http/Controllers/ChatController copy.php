@@ -106,13 +106,11 @@ class ChatController extends Controller
         if ($cursor) {
             $query->where('id', '<', $cursor);
         }
-
-        // Fetch 20 oldest (based on cursor) messages sorted by id desc
+ 
         $messages = $query->orderBy('id', 'desc')
             ->limit(20)
             ->get();
-
-        // Reverse to show in chronological order (ascending)
+ 
         $messages = $messages->reverse()->values();
 
         $oldestMessage = $messages->first();

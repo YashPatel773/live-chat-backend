@@ -1,4 +1,11 @@
+# *
+# !private/
+# !public/
+# !.gitignore
+
 *
 !private/
 !public/
 !.gitignore
+!certs/
+!certs/*
