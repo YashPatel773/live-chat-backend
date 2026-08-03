@@ -6,7 +6,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\FriendshipController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\MessageReactionController;
-
+use Illuminate\Support\Facades\DB;
 /*
 |--------------------------------------------------------------------------
 | Public Routes (Anyone can access these without a token)
@@ -72,4 +72,13 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/groups/{groupId}/members', [GroupController::class, 'addMember']);
     Route::post('/groups/{groupId}/members/remove', [GroupController::class, 'removeMember']);
     Route::post('/groups/{groupId}/leave', [GroupController::class, 'leaveGroup']);
+});
+
+Route::get('/test-db', function () {
+    try {
+        DB::connection()->getPdo();
+        return "Database Connected";
+    } catch (\Exception $e) {
+        return $e->getMessage();
+    }
 });
